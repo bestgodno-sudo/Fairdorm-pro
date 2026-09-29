@@ -248,13 +248,26 @@ export function getTempMultiplier(temp: number): {
 }
 
 export function calculateFairDormBill(
-  totalBill: number,
+  totalBill: number | string,
   roommates: Roommate[],
   selectedBTU: BTUOption,
-  unitRate: number = 8
+  unitRate: number | string = 8
 ): CalculationResult {
-  const safeTotal = Math.max(0, totalBill);
-  const safeRate = Math.max(1, unitRate || 8);
+  const numericBill =
+    typeof totalBill === 'number'
+      ? totalBill
+      : totalBill === ''
+      ? 0
+      : parseFloat(totalBill) || 0;
+  const safeTotal = Math.max(0, numericBill);
+
+  const numericRate =
+    typeof unitRate === 'number'
+      ? unitRate
+      : unitRate === ''
+      ? 8
+      : parseFloat(unitRate) || 8;
+  const safeRate = Math.max(1, numericRate);
   const n = roommates.length || 1;
 
   // 1. 25% Base Common Fee (Shared equally among all roommates)
@@ -291,18 +304,25 @@ export function calculateFairDormBill(
     // 1. Presets
     APPLIANCES.forEach((app) => {
       if (m.appliances && m.appliances[app.id]) {
+        const rawWatts = m.applianceWatts?.[app.id];
         const effectiveWatts =
-          m.applianceWatts &&
-          m.applianceWatts[app.id] !== undefined &&
-          m.applianceWatts[app.id]! > 0
-            ? m.applianceWatts[app.id]!
+          rawWatts !== undefined && rawWatts !== '' && Number(rawWatts) > 0
+            ? Number(rawWatts)
             : app.watts;
+
+        const rawDur = m.applianceDurations?.[app.id];
         const durationMin =
-          (m.applianceDurations && m.applianceDurations[app.id]) ??
-          app.defaultDurationMinutes;
+          rawDur !== undefined && rawDur !== ''
+            ? Number(rawDur)
+            : app.defaultDurationMinutes;
+
+        const rawDays = m.applianceDays?.[app.id];
         const daysUsed = Math.min(
           stayDays,
-          Math.max(1, (m.applianceDays && m.applianceDays[app.id]) ?? stayDays)
+          Math.max(
+            0,
+            rawDays !== undefined && rawDays !== '' ? Number(rawDays) : stayDays
+          )
         );
         const dailyKWh = (effectiveWatts * (durationMin / 60)) / 1000;
         const monthlyKWh = dailyKWh * daysUsed;
@@ -325,19 +345,32 @@ export function calculateFairDormBill(
     if (m.customAppliances && m.customAppliances.length > 0) {
       m.customAppliances.forEach((c) => {
         if (c.enabled) {
+          const rawDays = c.daysPerMonth;
           const daysUsed = Math.min(
             stayDays,
-            Math.max(1, c.daysPerMonth ?? stayDays)
+            Math.max(
+              0,
+              rawDays !== undefined && rawDays !== '' ? Number(rawDays) : stayDays
+            )
           );
-          const dailyKWh = (c.watts * (c.durationMinutes / 60)) / 1000;
+          const rawDur = c.durationMinutes;
+          const durationMin =
+            rawDur !== undefined && rawDur !== '' ? Number(rawDur) : 0;
+          const rawWatts = c.watts;
+          const customWatts =
+            rawWatts !== undefined && rawWatts !== '' && Number(rawWatts) > 0
+              ? Number(rawWatts)
+              : 0;
+
+          const dailyKWh = (customWatts * (durationMin / 60)) / 1000;
           const monthlyKWh = dailyKWh * daysUsed;
 
           activeAppliances.push({
             id: c.id,
             name: c.name,
             emoji: c.emoji || '⚡',
-            watts: c.watts,
-            durationMinutes: c.durationMinutes,
+            watts: customWatts,
+            durationMinutes: durationMin,
             daysPerMonth: daysUsed,
             dailyKWh: Math.round(dailyKWh * 1000) / 1000,
             monthlyKWh: Math.round(monthlyKWh * 1000) / 1000,
@@ -481,6 +514,7 @@ export function calculateFairDormBill(
   };
 }
 
-export function formatBaht(amount: number): string {
-  return new Intl.NumberFormat('th-TH').format(Math.round(amount));
+export function formatBaht(amount: number | string): string {
+  const num = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
+  return new Intl.NumberFormat('th-TH').format(Math.round(num));
 }

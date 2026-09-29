@@ -19,8 +19,8 @@ import { sounds } from './utils/soundEffects';
 
 export default function App() {
   // 1. Global Room State
-  const [totalBill, setTotalBill] = useState<number>(2400);
-  const [unitRate, setUnitRate] = useState<number>(8);
+  const [totalBill, setTotalBill] = useState<number | string>(2400);
+  const [unitRate, setUnitRate] = useState<number | string>(8);
   const [selectedBTU, setSelectedBTU] = useState<BTUOption>(BTU_OPTIONS[1]); // 12,000 BTU
   const [roomNumber, setRoomNumber] = useState<string>('402');
   const [billMonth, setBillMonth] = useState<string>('ก.ย. 69');

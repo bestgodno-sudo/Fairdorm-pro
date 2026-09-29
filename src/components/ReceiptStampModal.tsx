@@ -594,6 +594,7 @@ ${promptPayNumber.trim() ? `💳 โอนเข้าพร้อมเพย�
               <input
                 type="text"
                 value={promptPayNumber}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => setPromptPayNumber(e.target.value)}
                 placeholder="เช่น 081-234-5678 หรือ เลขที่บัญชี กสิกร"
                 className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500"

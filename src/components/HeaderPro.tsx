@@ -133,6 +133,7 @@ export const HeaderPro: React.FC<HeaderProProps> = ({
           <input
             type="text"
             value={roomNumber}
+            onFocus={(e) => e.target.select()}
             onChange={(e) => setRoomNumber(e.target.value)}
             placeholder="เช่น 402"
             className="w-16 px-2 py-0.5 bg-slate-800/80 border border-slate-700 rounded text-slate-200 font-medium focus:outline-none focus:border-emerald-500"
@@ -143,6 +144,7 @@ export const HeaderPro: React.FC<HeaderProProps> = ({
           <input
             type="text"
             value={billMonth}
+            onFocus={(e) => e.target.select()}
             onChange={(e) => setBillMonth(e.target.value)}
             placeholder="เช่น ก.ย. 69"
             className="w-24 px-2 py-0.5 bg-slate-800/80 border border-slate-700 rounded text-slate-200 font-medium focus:outline-none focus:border-emerald-500 text-right"

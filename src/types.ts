@@ -20,9 +20,9 @@ export interface CustomAppliance {
   id: string;
   name: string;
   emoji: string;
-  watts: number;
-  durationMinutes: number; // minutes per day
-  daysPerMonth?: number; // 1 - 30 days active in month (default 30)
+  watts: number | '';
+  durationMinutes: number | ''; // minutes per day
+  daysPerMonth?: number | ''; // 1 - 30 days active in month (default 30)
   enabled: boolean;
 }
 
@@ -47,22 +47,22 @@ export interface Roommate {
     iron: boolean;
   };
   applianceDurations: {
-    gaming_pc: number; // minutes per day
-    cooking_pot: number;
-    hair_dryer: number;
-    iron: number;
+    gaming_pc: number | ''; // minutes per day
+    cooking_pot: number | '';
+    hair_dryer: number | '';
+    iron: number | '';
   };
   applianceDays?: {
-    gaming_pc?: number; // 1 - 30 days
-    cooking_pot?: number;
-    hair_dryer?: number;
-    iron?: number;
+    gaming_pc?: number | ''; // 1 - 30 days
+    cooking_pot?: number | '';
+    hair_dryer?: number | '';
+    iron?: number | '';
   };
   applianceWatts?: {
-    gaming_pc?: number;
-    cooking_pot?: number;
-    hair_dryer?: number;
-    iron?: number;
+    gaming_pc?: number | '';
+    cooking_pot?: number | '';
+    hair_dryer?: number | '';
+    iron?: number | '';
   };
   customAppliances: CustomAppliance[];
 }

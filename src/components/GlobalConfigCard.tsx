@@ -5,10 +5,10 @@ import { BTU_OPTIONS, formatBaht } from '../utils/calculator';
 import { sounds } from '../utils/soundEffects';
 
 interface GlobalConfigCardProps {
-  totalBill: number;
-  setTotalBill: (val: number) => void;
-  unitRate?: number;
-  setUnitRate?: (rate: number) => void;
+  totalBill: number | string;
+  setTotalBill: (val: number | string) => void;
+  unitRate?: number | string;
+  setUnitRate?: (rate: number | string) => void;
   selectedBTU: BTUOption;
   setSelectedBTU: (btu: BTUOption) => void;
 }
@@ -29,11 +29,13 @@ export const GlobalConfigCard: React.FC<GlobalConfigCardProps> = ({
   const [meterStart, setMeterStart] = useState<string>('');
   const [meterEnd, setMeterEnd] = useState<string>('');
 
-  const safeUnitRate = unitRate || 8;
+  const numBill = typeof totalBill === 'number' ? totalBill : totalBill === '' ? 0 : parseFloat(totalBill) || 0;
+  const numRate = typeof unitRate === 'number' ? unitRate : unitRate === '' ? 8 : parseFloat(unitRate) || 8;
+  const safeUnitRate = numRate > 0 ? numRate : 8;
   const calculatedUnits =
-    safeUnitRate > 0 ? Math.round((totalBill / safeUnitRate) * 10) / 10 : 0;
-  const baseFee = Math.round(totalBill * 0.25);
-  const variableFee = totalBill - baseFee;
+    safeUnitRate > 0 ? Math.round((numBill / safeUnitRate) * 10) / 10 : 0;
+  const baseFee = Math.round(numBill * 0.25);
+  const variableFee = numBill - baseFee;
 
   const handlePresetBillClick = (preset: number) => {
     sounds.playClick(650);
@@ -55,7 +57,7 @@ export const GlobalConfigCard: React.FC<GlobalConfigCardProps> = ({
     const e = parseFloat(endStr) || 0;
     if (e >= s && e > 0) {
       const units = e - s;
-      const computedBill = Math.round(units * (unitRate || 8));
+      const computedBill = Math.round(units * numRate);
       setTotalBill(computedBill);
     }
   };
@@ -73,7 +75,7 @@ export const GlobalConfigCard: React.FC<GlobalConfigCardProps> = ({
             <span>อัตราค่าไฟหอพัก (บาท / หน่วย)</span>
           </label>
           <span className="text-[10px] text-slate-400 bg-slate-900/90 px-2 py-0.5 rounded-full border border-slate-700 font-mono">
-            {calculatedUnits} หน่วย ({totalBill > 0 ? `฿${formatBaht(totalBill)}` : '฿0'})
+            {calculatedUnits} หน่วย ({numBill > 0 ? `฿${formatBaht(numBill)}` : '฿0'})
           </span>
         </div>
 
@@ -84,14 +86,20 @@ export const GlobalConfigCard: React.FC<GlobalConfigCardProps> = ({
             </span>
             <input
               id="unitRateInput"
-              type="number"
-              min="1"
-              max="30"
-              step="0.5"
-              value={unitRate || ''}
+              type="text"
+              inputMode="decimal"
+              value={unitRate}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => {
-                const val = parseFloat(e.target.value);
-                setUnitRate?.(isNaN(val) ? 8 : val);
+                const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+                const parts = cleaned.split('.');
+                const safeVal = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+                if (safeVal === '') {
+                  setUnitRate?.('');
+                  return;
+                }
+                const val = parseFloat(safeVal);
+                setUnitRate?.(isNaN(val) ? '' : safeVal.endsWith('.') ? safeVal : val);
               }}
               placeholder="8"
               className="w-full pl-8 pr-16 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-base font-black text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent tabular-nums"
@@ -174,13 +182,19 @@ export const GlobalConfigCard: React.FC<GlobalConfigCardProps> = ({
               </span>
               <input
                 id="totalBillInput"
-                type="number"
-                min="0"
-                step="50"
-                value={totalBill === 0 ? '' : totalBill}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={totalBill}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  setTotalBill(isNaN(val) ? 0 : val);
+                  const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                  if (cleaned === '') {
+                    setTotalBill('');
+                    return;
+                  }
+                  const val = parseInt(cleaned, 10);
+                  setTotalBill(isNaN(val) ? '' : val);
                 }}
                 placeholder="2400"
                 className="w-full pl-9 pr-14 py-2.5 bg-slate-900/90 border border-slate-700 rounded-xl text-xl font-black text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent tabular-nums transition-all"
@@ -217,11 +231,14 @@ export const GlobalConfigCard: React.FC<GlobalConfigCardProps> = ({
                   เลขมิเตอร์ครั้งก่อน (ต้นเดือน):
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={meterStart}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => {
-                    setMeterStart(e.target.value);
-                    handleMeterChange(e.target.value, meterEnd);
+                    const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+                    setMeterStart(cleaned);
+                    handleMeterChange(cleaned, meterEnd);
                   }}
                   placeholder="เช่น 1200"
                   className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-cyan-500"
@@ -232,11 +249,14 @@ export const GlobalConfigCard: React.FC<GlobalConfigCardProps> = ({
                   เลขมิเตอร์ครั้งนี้ (ปลายเดือน):
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={meterEnd}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => {
-                    setMeterEnd(e.target.value);
-                    handleMeterChange(meterStart, e.target.value);
+                    const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+                    setMeterEnd(cleaned);
+                    handleMeterChange(meterStart, cleaned);
                   }}
                   placeholder="เช่น 1500"
                   className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-cyan-500"

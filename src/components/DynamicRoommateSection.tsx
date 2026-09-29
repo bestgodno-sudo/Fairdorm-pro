@@ -60,8 +60,9 @@ export const DynamicRoommateSection: React.FC<DynamicRoommateSectionProps> = ({
   }, [roommates.length]);
 
   const handleCountChange = (valStr: string) => {
-    setTypedCount(valStr);
-    const n = parseInt(valStr, 10);
+    const cleaned = valStr.replace(/[^0-9]/g, '');
+    setTypedCount(cleaned);
+    const n = parseInt(cleaned, 10);
     if (!isNaN(n) && n >= 2 && n <= 40) {
       sounds.playClick(600);
       onSetRoommateCount?.(n);
@@ -123,10 +124,11 @@ export const DynamicRoommateSection: React.FC<DynamicRoommateSectionProps> = ({
             </button>
 
             <input
-              type="number"
-              min="2"
-              max="40"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={typedCount}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => handleCountChange(e.target.value)}
               className="w-12 text-center bg-transparent text-sm font-black text-white font-mono focus:outline-none py-1"
             />
@@ -328,7 +330,7 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
 
   const updateApplianceDuration = (
     key: 'gaming_pc' | 'cooking_pot' | 'hair_dryer' | 'iron',
-    minutes: number
+    minutes: number | ''
   ) => {
     sounds.playClick(600);
     onChange({
@@ -340,35 +342,35 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
           hair_dryer: 15,
           iron: 15,
         }),
-        [key]: minutes,
+        [key]: minutes === '' ? '' : Math.max(0, minutes),
       },
     });
   };
 
   const updateApplianceDays = (
     key: 'gaming_pc' | 'cooking_pot' | 'hair_dryer' | 'iron',
-    days: number
+    days: number | ''
   ) => {
     sounds.playClick(600);
     onChange({
       ...roommate,
       applianceDays: {
         ...(roommate.applianceDays || {}),
-        [key]: Math.min(currentStayDays, Math.max(1, days)),
+        [key]: days === '' ? '' : Math.min(currentStayDays, Math.max(0, days)),
       },
     });
   };
 
   const updateApplianceWatts = (
     key: 'gaming_pc' | 'cooking_pot' | 'hair_dryer' | 'iron',
-    watts: number
+    watts: number | ''
   ) => {
     sounds.playClick(650);
     onChange({
       ...roommate,
       applianceWatts: {
         ...(roommate.applianceWatts || {}),
-        [key]: Math.max(1, watts),
+        [key]: watts === '' ? '' : Math.max(0, watts),
       },
     });
   };
@@ -495,6 +497,7 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                 type="text"
                 autoFocus
                 value={nameVal}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => setNameVal(e.target.value)}
                 onBlur={handleNameSave}
                 onKeyDown={(e) => {
@@ -903,21 +906,27 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {APPLIANCES.map((app) => {
             const isActive = roommate.appliances[app.id];
+            const rawW = roommate.applianceWatts?.[app.id];
             const currentWatts =
-              (roommate.applianceWatts && roommate.applianceWatts[app.id]) ??
-              app.watts;
+              rawW !== undefined && rawW !== '' && Number(rawW) > 0
+                ? Number(rawW)
+                : app.watts;
             const isCustomWatts =
-              roommate.applianceWatts &&
-              roommate.applianceWatts[app.id] !== undefined &&
-              roommate.applianceWatts[app.id] !== app.watts;
+              rawW !== undefined && rawW !== '' && Number(rawW) !== app.watts;
+
+            const rawD = roommate.applianceDurations?.[app.id];
             const currentDur =
-              (roommate.applianceDurations &&
-                roommate.applianceDurations[app.id]) ??
-              app.defaultDurationMinutes;
+              rawD !== undefined && rawD !== ''
+                ? Number(rawD)
+                : app.defaultDurationMinutes;
+
+            const rawDays = roommate.applianceDays?.[app.id];
             const daysUsed = Math.min(
               currentStayDays,
-              (roommate.applianceDays && roommate.applianceDays[app.id]) ??
-                currentStayDays
+              Math.max(
+                0,
+                rawDays !== undefined && rawDays !== '' ? Number(rawDays) : currentStayDays
+              )
             );
             const dailyKWh = (currentWatts * (currentDur / 60)) / 1000;
             const monthlyKWh = dailyKWh * daysUsed;
@@ -1007,13 +1016,24 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
 
             {/* ไดร์เป่าผม */}
             {roommate.appliances.hair_dryer && (() => {
-              const watts = roommate.applianceWatts?.hair_dryer ?? 1800;
+              const rawWatts = roommate.applianceWatts?.hair_dryer;
+              const wattsVal = rawWatts !== undefined ? rawWatts : 1800;
               const isCustomWatts =
-                roommate.applianceWatts?.hair_dryer !== undefined &&
-                roommate.applianceWatts?.hair_dryer !== 1800;
-              const dur = roommate.applianceDurations?.hair_dryer ?? 15;
-              const days = roommate.applianceDays?.hair_dryer ?? currentStayDays;
-              const monthlyKWh = (watts * (dur / 60) * days) / 1000;
+                rawWatts !== undefined &&
+                rawWatts !== '' &&
+                rawWatts !== 1800;
+
+              const rawDur = roommate.applianceDurations?.hair_dryer;
+              const durVal = rawDur !== undefined ? rawDur : 15;
+
+              const rawDays = roommate.applianceDays?.hair_dryer;
+              const daysVal = rawDays !== undefined ? rawDays : currentStayDays;
+
+              const calcWatts = rawWatts !== undefined && rawWatts !== '' ? Number(rawWatts) : 1800;
+              const calcDur = rawDur !== undefined && rawDur !== '' ? Number(rawDur) : 15;
+              const calcDays = rawDays !== undefined && rawDays !== '' ? Number(rawDays) : currentStayDays;
+              const monthlyKWh = (calcWatts * (calcDur / 60) * calcDays) / 1000;
+
               return (
                 <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 space-y-2 text-[10px]">
                   <div className="flex items-center justify-between gap-1 flex-wrap">
@@ -1025,14 +1045,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <span className="text-[8.5px] text-slate-400 font-medium">กำลังไฟ:</span>
                         <input
-                          type="number"
-                          min="50"
-                          max="3500"
-                          step="50"
-                          value={watts}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={wattsVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateApplianceWatts('hair_dryer', val);
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceWatts('hair_dryer', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceWatts('hair_dryer', isNaN(val) ? '' : val);
                           }}
                           className="w-12 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-amber-300 text-center font-bold focus:outline-none focus:border-amber-500"
                           placeholder="1800"
@@ -1079,14 +1104,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       {/* Direct Custom Duration Input */}
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <input
-                          type="number"
-                          min="1"
-                          max="180"
-                          step="1"
-                          value={roommate.applianceDurations?.hair_dryer ?? 15}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={durVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val)) updateApplianceDuration('hair_dryer', Math.max(0, val));
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceDuration('hair_dryer', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceDuration('hair_dryer', isNaN(val) ? '' : Math.max(0, val));
                           }}
                           className="w-9 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-emerald-300 text-center focus:outline-none focus:border-emerald-500"
                           placeholder="15"
@@ -1118,13 +1148,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       {/* Expanded Days Input with clear unit */}
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <input
-                          type="number"
-                          min="1"
-                          max={currentStayDays}
-                          value={roommate.applianceDays?.hair_dryer ?? currentStayDays}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={daysVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateApplianceDays('hair_dryer', val);
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceDays('hair_dryer', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceDays('hair_dryer', isNaN(val) ? '' : val);
                           }}
                           className="w-9 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-cyan-300 text-center focus:outline-none focus:border-cyan-500"
                           placeholder="30"
@@ -1139,13 +1175,24 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
 
             {/* เตารีดผ้า */}
             {roommate.appliances.iron && (() => {
-              const watts = roommate.applianceWatts?.iron ?? 1000;
+              const rawWatts = roommate.applianceWatts?.iron;
+              const wattsVal = rawWatts !== undefined ? rawWatts : 1000;
               const isCustomWatts =
-                roommate.applianceWatts?.iron !== undefined &&
-                roommate.applianceWatts?.iron !== 1000;
-              const dur = roommate.applianceDurations?.iron ?? 15;
-              const days = roommate.applianceDays?.iron ?? Math.min(8, currentStayDays);
-              const monthlyKWh = (watts * (dur / 60) * days) / 1000;
+                rawWatts !== undefined &&
+                rawWatts !== '' &&
+                rawWatts !== 1000;
+
+              const rawDur = roommate.applianceDurations?.iron;
+              const durVal = rawDur !== undefined ? rawDur : 15;
+
+              const rawDays = roommate.applianceDays?.iron;
+              const daysVal = rawDays !== undefined ? rawDays : Math.min(8, currentStayDays);
+
+              const calcWatts = rawWatts !== undefined && rawWatts !== '' ? Number(rawWatts) : 1000;
+              const calcDur = rawDur !== undefined && rawDur !== '' ? Number(rawDur) : 15;
+              const calcDays = rawDays !== undefined && rawDays !== '' ? Number(rawDays) : Math.min(8, currentStayDays);
+              const monthlyKWh = (calcWatts * (calcDur / 60) * calcDays) / 1000;
+
               return (
                 <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 space-y-2 text-[10px]">
                   <div className="flex items-center justify-between gap-1 flex-wrap">
@@ -1157,14 +1204,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <span className="text-[8.5px] text-slate-400 font-medium">กำลังไฟ:</span>
                         <input
-                          type="number"
-                          min="50"
-                          max="3500"
-                          step="50"
-                          value={watts}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={wattsVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateApplianceWatts('iron', val);
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceWatts('iron', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceWatts('iron', isNaN(val) ? '' : val);
                           }}
                           className="w-12 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-amber-300 text-center font-bold focus:outline-none focus:border-amber-500"
                           placeholder="1000"
@@ -1211,14 +1263,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       {/* Direct Custom Duration Input */}
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <input
-                          type="number"
-                          min="1"
-                          max="180"
-                          step="1"
-                          value={roommate.applianceDurations?.iron ?? 15}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={durVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val)) updateApplianceDuration('iron', Math.max(0, val));
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceDuration('iron', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceDuration('iron', isNaN(val) ? '' : Math.max(0, val));
                           }}
                           className="w-9 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-emerald-300 text-center focus:outline-none focus:border-emerald-500"
                           placeholder="15"
@@ -1250,13 +1307,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       {/* Expanded Days Input with clear unit */}
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <input
-                          type="number"
-                          min="1"
-                          max={currentStayDays}
-                          value={roommate.applianceDays?.iron ?? Math.min(8, currentStayDays)}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={daysVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateApplianceDays('iron', val);
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceDays('iron', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceDays('iron', isNaN(val) ? '' : val);
                           }}
                           className="w-9 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-cyan-300 text-center focus:outline-none focus:border-cyan-500"
                           placeholder="4"
@@ -1271,13 +1334,29 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
 
             {/* คอมเกมมิ่ง PC */}
             {roommate.appliances.gaming_pc && (() => {
-              const watts = roommate.applianceWatts?.gaming_pc ?? 250;
+              const rawWatts = roommate.applianceWatts?.gaming_pc;
+              const wattsVal = rawWatts !== undefined ? rawWatts : 250;
               const isCustomWatts =
-                roommate.applianceWatts?.gaming_pc !== undefined &&
-                roommate.applianceWatts?.gaming_pc !== 250;
-              const dur = roommate.applianceDurations?.gaming_pc ?? 360;
-              const days = roommate.applianceDays?.gaming_pc ?? currentStayDays;
-              const monthlyKWh = (watts * (dur / 60) * days) / 1000;
+                rawWatts !== undefined &&
+                rawWatts !== '' &&
+                rawWatts !== 250;
+
+              const rawDur = roommate.applianceDurations?.gaming_pc;
+              const hoursVal =
+                rawDur === ''
+                  ? ''
+                  : rawDur !== undefined
+                  ? Math.round((Number(rawDur) / 60) * 10) / 10
+                  : 6;
+
+              const rawDays = roommate.applianceDays?.gaming_pc;
+              const daysVal = rawDays !== undefined ? rawDays : currentStayDays;
+
+              const calcWatts = rawWatts !== undefined && rawWatts !== '' ? Number(rawWatts) : 250;
+              const calcDur = rawDur !== undefined && rawDur !== '' ? Number(rawDur) : 360;
+              const calcDays = rawDays !== undefined && rawDays !== '' ? Number(rawDays) : currentStayDays;
+              const monthlyKWh = (calcWatts * (calcDur / 60) * calcDays) / 1000;
+
               return (
                 <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 space-y-2 text-[10px]">
                   <div className="flex items-center justify-between gap-1 flex-wrap">
@@ -1289,14 +1368,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <span className="text-[8.5px] text-slate-400 font-medium">กำลังไฟ:</span>
                         <input
-                          type="number"
-                          min="50"
-                          max="2000"
-                          step="25"
-                          value={watts}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={wattsVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateApplianceWatts('gaming_pc', val);
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceWatts('gaming_pc', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceWatts('gaming_pc', isNaN(val) ? '' : val);
                           }}
                           className="w-12 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-amber-300 text-center font-bold focus:outline-none focus:border-amber-500"
                           placeholder="250"
@@ -1348,18 +1432,20 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       {/* Direct Custom Duration Input (in hours) */}
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <input
-                          type="number"
-                          min="0.5"
-                          max="24"
-                          step="0.5"
-                          value={
-                            roommate.applianceDurations?.gaming_pc !== undefined
-                              ? Math.round((roommate.applianceDurations.gaming_pc / 60) * 10) / 10
-                              : 6
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={hoursVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val)) updateApplianceDuration('gaming_pc', Math.round(val * 60));
+                            const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+                            const parts = cleaned.split('.');
+                            const safeVal = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+                            if (safeVal === '') {
+                              updateApplianceDuration('gaming_pc', '');
+                              return;
+                            }
+                            const val = parseFloat(safeVal);
+                            updateApplianceDuration('gaming_pc', isNaN(val) ? '' : Math.round(val * 60));
                           }}
                           className="w-10 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-emerald-300 text-center focus:outline-none focus:border-emerald-500"
                           placeholder="6"
@@ -1391,13 +1477,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       {/* Expanded Days Input with clear unit */}
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <input
-                          type="number"
-                          min="1"
-                          max={currentStayDays}
-                          value={roommate.applianceDays?.gaming_pc ?? currentStayDays}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={daysVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateApplianceDays('gaming_pc', val);
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceDays('gaming_pc', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceDays('gaming_pc', isNaN(val) ? '' : val);
                           }}
                           className="w-9 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-cyan-300 text-center focus:outline-none focus:border-cyan-500"
                           placeholder="25"
@@ -1412,13 +1504,24 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
 
             {/* กระทะชาบู */}
             {roommate.appliances.cooking_pot && (() => {
-              const watts = roommate.applianceWatts?.cooking_pot ?? 1200;
+              const rawWatts = roommate.applianceWatts?.cooking_pot;
+              const wattsVal = rawWatts !== undefined ? rawWatts : 1200;
               const isCustomWatts =
-                roommate.applianceWatts?.cooking_pot !== undefined &&
-                roommate.applianceWatts?.cooking_pot !== 1200;
-              const dur = roommate.applianceDurations?.cooking_pot ?? 30;
-              const days = roommate.applianceDays?.cooking_pot ?? Math.min(4, currentStayDays);
-              const monthlyKWh = (watts * (dur / 60) * days) / 1000;
+                rawWatts !== undefined &&
+                rawWatts !== '' &&
+                rawWatts !== 1200;
+
+              const rawDur = roommate.applianceDurations?.cooking_pot;
+              const durVal = rawDur !== undefined ? rawDur : 30;
+
+              const rawDays = roommate.applianceDays?.cooking_pot;
+              const daysVal = rawDays !== undefined ? rawDays : Math.min(4, currentStayDays);
+
+              const calcWatts = rawWatts !== undefined && rawWatts !== '' ? Number(rawWatts) : 1200;
+              const calcDur = rawDur !== undefined && rawDur !== '' ? Number(rawDur) : 30;
+              const calcDays = rawDays !== undefined && rawDays !== '' ? Number(rawDays) : Math.min(4, currentStayDays);
+              const monthlyKWh = (calcWatts * (calcDur / 60) * calcDays) / 1000;
+
               return (
                 <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 space-y-2 text-[10px]">
                   <div className="flex items-center justify-between gap-1 flex-wrap">
@@ -1430,14 +1533,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <span className="text-[8.5px] text-slate-400 font-medium">กำลังไฟ:</span>
                         <input
-                          type="number"
-                          min="100"
-                          max="3000"
-                          step="50"
-                          value={watts}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={wattsVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateApplianceWatts('cooking_pot', val);
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceWatts('cooking_pot', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceWatts('cooking_pot', isNaN(val) ? '' : val);
                           }}
                           className="w-12 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-amber-300 text-center font-bold focus:outline-none focus:border-amber-500"
                           placeholder="1200"
@@ -1484,14 +1592,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       {/* Direct Custom Duration Input */}
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <input
-                          type="number"
-                          min="1"
-                          max="240"
-                          step="5"
-                          value={roommate.applianceDurations?.cooking_pot ?? 30}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={durVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val)) updateApplianceDuration('cooking_pot', Math.max(0, val));
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceDuration('cooking_pot', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceDuration('cooking_pot', isNaN(val) ? '' : Math.max(0, val));
                           }}
                           className="w-9 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-emerald-300 text-center focus:outline-none focus:border-emerald-500"
                           placeholder="30"
@@ -1523,13 +1636,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                       {/* Expanded Days Input with clear unit */}
                       <div className="flex items-center gap-1 bg-slate-900/90 px-1.5 py-0.5 rounded-lg border border-slate-700">
                         <input
-                          type="number"
-                          min="1"
-                          max={currentStayDays}
-                          value={roommate.applianceDays?.cooking_pot ?? Math.min(4, currentStayDays)}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={daysVal}
+                          onFocus={(e) => e.target.select()}
                           onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val)) updateApplianceDays('cooking_pot', val);
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                            if (cleaned === '') {
+                              updateApplianceDays('cooking_pot', '');
+                              return;
+                            }
+                            const val = parseInt(cleaned, 10);
+                            updateApplianceDays('cooking_pot', isNaN(val) ? '' : val);
                           }}
                           className="w-9 px-1 py-0.5 bg-slate-950 border border-slate-600 rounded text-[10px] font-mono text-cyan-300 text-center focus:outline-none focus:border-cyan-500"
                           placeholder="4"
@@ -1553,8 +1672,19 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {roommate.customAppliances.map((c) => {
-                  const daysUsed = Math.min(currentStayDays, c.daysPerMonth ?? currentStayDays);
-                  const dailyKWh = (c.watts * (c.durationMinutes / 60)) / 1000;
+                  const daysUsed = Math.min(
+                    currentStayDays,
+                    c.daysPerMonth !== undefined && c.daysPerMonth !== ''
+                      ? Number(c.daysPerMonth)
+                      : currentStayDays
+                  );
+                  const effectiveWatts =
+                    c.watts !== undefined && c.watts !== '' ? Number(c.watts) : 0;
+                  const effectiveDur =
+                    c.durationMinutes !== undefined && c.durationMinutes !== ''
+                      ? Number(c.durationMinutes)
+                      : 0;
+                  const dailyKWh = (effectiveWatts * (effectiveDur / 60)) / 1000;
                   const monthlyKWh = dailyKWh * daysUsed;
 
                   return (
@@ -1608,14 +1738,21 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                             <span className="text-slate-400">เวลา/วัน:</span>
                             <div className="flex items-center gap-0.5 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-700">
                               <input
-                                type="number"
-                                min="1"
-                                max="1440"
-                                step="1"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={c.durationMinutes}
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
-                                  const val = parseInt(e.target.value, 10);
-                                  if (!isNaN(val)) updateCustomAppliance(c.id, { durationMinutes: Math.max(1, val) });
+                                  const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                                  if (cleaned === '') {
+                                    updateCustomAppliance(c.id, { durationMinutes: '' });
+                                    return;
+                                  }
+                                  const val = parseInt(cleaned, 10);
+                                  updateCustomAppliance(c.id, {
+                                    durationMinutes: isNaN(val) ? '' : Math.max(1, val),
+                                  });
                                 }}
                                 className="w-8 px-0.5 text-center bg-transparent text-emerald-300 font-mono focus:outline-none"
                               />
@@ -1627,13 +1764,21 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                             <span className="text-slate-400">ใช้:</span>
                             <div className="flex items-center gap-0.5 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-700">
                               <input
-                                type="number"
-                                min="1"
-                                max={currentStayDays}
-                                value={daysUsed}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={c.daysPerMonth !== undefined ? c.daysPerMonth : currentStayDays}
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) => {
-                                  const val = parseInt(e.target.value, 10);
-                                  if (!isNaN(val)) updateCustomAppliance(c.id, { daysPerMonth: Math.max(1, Math.min(currentStayDays, val)) });
+                                  const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                                  if (cleaned === '') {
+                                    updateCustomAppliance(c.id, { daysPerMonth: '' });
+                                    return;
+                                  }
+                                  const val = parseInt(cleaned, 10);
+                                  updateCustomAppliance(c.id, {
+                                    daysPerMonth: isNaN(val) ? '' : Math.max(1, Math.min(currentStayDays, val)),
+                                  });
                                 }}
                                 className="w-8 px-0.5 text-center bg-transparent text-cyan-300 font-mono focus:outline-none"
                               />
@@ -1710,6 +1855,7 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                   <input
                     type="text"
                     value={customName}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => setCustomName(e.target.value)}
                     placeholder="เช่น ตู้เย็น, พัดลม"
                     className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500"
@@ -1719,11 +1865,15 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                 <div>
                   <label className="text-[10px] text-slate-400 block mb-0.5">กำลังวัตต์ (W):</label>
                   <input
-                    type="number"
-                    min="1"
-                    max="5000"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={customWatts}
-                    onChange={(e) => setCustomWatts(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                      setCustomWatts(cleaned);
+                    }}
                     placeholder="เช่น 60, 400"
                     className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                   />
@@ -1733,12 +1883,16 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                   <label className="text-[10px] text-slate-400 block mb-0.5">เวลาใช้งาน/วัน:</label>
                   <div className="flex gap-1">
                     <input
-                      type="number"
-                      step="any"
-                      min="0.1"
-                      max={customUnit === 'hours' ? 24 : 1440}
+                      type="text"
+                      inputMode="decimal"
                       value={customDuration}
-                      onChange={(e) => setCustomDuration(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const cleaned = e.target.value.replace(/[^0-9.]/g, '');
+                        const parts = cleaned.split('.');
+                        const safeVal = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+                        setCustomDuration(safeVal);
+                      }}
                       placeholder={customUnit === 'hours' ? 'เช่น 2, 5.5' : 'เช่น 15, 45'}
                       className="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                     />
@@ -1759,11 +1913,15 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                   <label className="text-[10px] text-slate-400 block mb-0.5">กี่วัน/เดือน:</label>
                   <div className="flex items-center gap-1">
                     <input
-                      type="number"
-                      min="1"
-                      max={currentStayDays}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={customDays}
-                      onChange={(e) => setCustomDays(e.target.value)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const cleaned = e.target.value.replace(/[^0-9]/g, '');
+                        setCustomDays(cleaned);
+                      }}
                       placeholder={currentStayDays.toString()}
                       className="w-full px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-cyan-500 text-center"
                     />
@@ -1773,11 +1931,11 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
               </div>
 
               {/* Energy Calculation Preview */}
-              {customName && customWatts && customDuration && (
+              {parseFloat(customWatts || '0') > 0 && parseFloat(customDuration || '0') > 0 && (
                 <div className="bg-slate-950/80 p-2 rounded-lg border border-slate-800 text-[10px] flex items-center justify-between text-slate-300">
                   <span>
-                    💡 คำนวณพลังงาน: {customWatts}W × {customDuration}{' '}
-                    {customUnit === 'hours' ? 'ชม.' : 'นาที'} × {customDays} วัน / 1,000
+                    💡 คำนวณพลังงาน: {customWatts || 0}W × {customDuration || 0}{' '}
+                    {customUnit === 'hours' ? 'ชม.' : 'นาที'} × {customDays || currentStayDays} วัน / 1,000
                   </span>
                   <span className="font-mono text-cyan-400 font-bold">
                     ~
@@ -1786,7 +1944,7 @@ const RoommateCardItem: React.FC<RoommateCardItemProps> = ({
                         (customUnit === 'hours'
                           ? parseFloat(customDuration || '0')
                           : parseFloat(customDuration || '0') / 60) *
-                        parseFloat(customDays || '30')) /
+                        parseFloat(customDays || currentStayDays.toString())) /
                       1000
                     ).toFixed(1)}{' '}
                     kWh/เดือน
